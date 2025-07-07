@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const path = require('path'); // <-- Required for serving static files
 const { Server } = require('socket.io');
 const { createGame, joinGame, playCard, sentaAction, rematch, playerForceDraw } = require('./game-logic');
 
@@ -64,5 +65,15 @@ io.on('connection', (socket) => {
     // Optionally: handle disconnect logic, clean up rooms, etc
   });
 });
+
+// ---- ADD THESE LINES to serve React frontend ----
+// Serves the static files from React's build folder
+app.use(express.static(path.join(__dirname, '../frontend/build')));
+
+// For any request that doesn't match an API route, send back React's index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+});
+// --------------------------------------------------
 
 server.listen(3001, () => console.log('Server running on :3001'));
