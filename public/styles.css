@@ -110,21 +110,23 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
 
 #room-label {
   position: fixed;
-  left: 0;
-  top: 0;
-  background: rgba(255, 255, 255, 0.7);
-  color: #fff;
-  font-size: 1.19rem;
-  font-weight: bold;
-  padding: 0;
-  letter-spacing: 3px;
-  border-radius: 0 0 16px 0;
-  box-shadow: 0 4px 16px #0004;
-  z-index: 8;
+  left: env(safe-area-inset-left, 10px);
+  top: calc(env(safe-area-inset-top, 20px) + 12px); /* 12px below notch */
+  z-index: 20;
   margin: 0;
+  /* Remove old background and radius from here, move to span! */
 }
-#room-label span{
-  background: rgba(255, 255, 255, 0.3)!important;
+#room-label span {
+  background: rgba(20, 20, 30, 0.87);
+  color: #fff;
+  font-size: 1.05em;
+  font-weight: 600;
+  padding: 7px 22px 7px 16px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px #0002;
+  letter-spacing: 1.5px;
+  line-height: 1.5;
+  display: inline-block;
 }
 
 #players {
