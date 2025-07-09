@@ -19,6 +19,13 @@ body{
   display: flex;
   flex-direction: column;
 }
+#app-bg {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: -10;
+  background: #14161a;
+  pointer-events: none;
+}
 
 @media (max-width: 700px) {
   #game-root {
@@ -118,7 +125,7 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
 }
 #room-label span {
   position: fixed;
-  background: rgba(20, 20, 30, 0.87);
+  background: rgba(255, 255, 255, 0.35);
   color: #fff;
   font-size: 1.05em;
   font-weight: 600;
@@ -128,6 +135,7 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
   letter-spacing: 1.5px;
   line-height: 1.5;
   display: inline-block;
+  left: 10px;
 }
 
 #players {

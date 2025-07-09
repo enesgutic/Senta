@@ -57,7 +57,7 @@ $(function() {
   function showGame() {
     $('#game-root').html(`
   <div id="room-label">
-    <span style="font-size:1em;font-weight:500;padding:5px 12px 5px 8px;background:rgba(20,20,30,0.85);border-radius:12px 0 16px 0;box-shadow:0 2px 8px #0002;letter-spacing:1.5px;position:fixed;top:7px;left:7px;z-index:20;line-height:1.4;display:inline-block;">
+    <span>
         Room: <b style="font-size:1.06em;letter-spacing:2.5px">${roomCode}</b>
     </span>
     </div>
