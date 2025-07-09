@@ -43,9 +43,13 @@ io.on('connection', (socket) => {
     const game = games[roomCode];
     if (!game) return;
     const result = sentaAction(game, socket.id);
-    if (result && result.update) io.to(roomCode).emit('update', game.getPublicState());
+    if (result && result.update) {
+        io.to(roomCode).emit('update', game.getPublicState());
+        // NEW: Let all players know to show the SENTA animation!
+        io.to(roomCode).emit('showSenta');
+    }
     if (callback) callback(result);
-  });
+    });
 
   socket.on('rematch', ({ roomCode }, callback) => {
     const game = games[roomCode];

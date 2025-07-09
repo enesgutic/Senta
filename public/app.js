@@ -233,7 +233,6 @@ $(function() {
 
   function activateSenta() {
     socket.emit('senta', { roomCode });
-    showSentaAnimation();
   }
 
   function showSentaAnimation() {
@@ -276,6 +275,10 @@ $(function() {
   // Listen for server updates
   socket.on('update', function(state) {
     updateGameUI(state);
+  });
+
+  socket.on('showSenta', function() {
+    showSentaAnimation();
   });
 
   socket.on('handCardSelected', function({ playerIdx, handIdx }) {
