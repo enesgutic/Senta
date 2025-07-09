@@ -61,7 +61,7 @@ $(function() {
         Room: <b style="font-size:1.06em;letter-spacing:2.5px">${roomCode}</b>
     </span>
     </div>
-  <div style="padding-top:32px">
+  <div style="padding-top:72px">
     <div id="opponent-info"></div>
     <div id="center-field"></div>
     <div id="my-hand"></div>
