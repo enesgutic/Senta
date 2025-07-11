@@ -9,6 +9,7 @@ $(function() {
   let otherPlayerSelectedHandIdx = null;
   let pileTouchTimes = [0, 0]; // For SENTA detection (simultaneous tap)
   let lastTapTimes = [0, 0];   // For SENTA detection (double tap)
+  let lastTouchTimestamp = 0;
   
 
   function showNameForm() {
@@ -73,8 +74,11 @@ $(function() {
   </div>
 `);
 
-    $('#leave-btn').click(function() {
-      location.reload();
+    $('#leave-btn').off().on('touchstart click', function(e) {
+    e.preventDefault();
+    if (e.type === 'click' && Date.now() - lastTouchTimestamp < 500) return;
+    if (e.type === 'touchstart') lastTouchTimestamp = Date.now();
+    location.reload();
     });
     updateGameUI(gameState);
   }
@@ -122,7 +126,12 @@ $(function() {
 
     // ===== DRAW CARD BUTTON =====
     $('#draw-card-area').html(`<button id="draw-card-btn" style="font-size:22px;padding:8px 26px;background:#1d72b8;color:#fff;border-radius:10px;">Draw Card</button>`);
-    $('#draw-card-btn').off().click(function() {
+    $('#draw-card-btn').off().on('touchstart click', function(e) {
+        e.preventDefault();
+        if (e.type === 'click' && Date.now() - lastTouchTimestamp < 500) return;
+        if (e.type === 'touchstart') lastTouchTimestamp = Date.now();
+        selectedHandIdx = null;
+        updateGameUI(gameState); // optional, to clear selection highlight
     if (me.deckCount > 0) {
         socket.emit('drawCardRequest', { roomCode });
         $('#draw-card-btn').prop('disabled', true).text('Waiting for other player...');
@@ -130,7 +139,10 @@ $(function() {
         // Prompt player to pick a card from hand
         $('#game-controls').html('<div class="draw-prompt-choose">Pick a hand card to draw:</div>');
         $('.my-hand-card').css('box-shadow', '0 0 10px 2px #1d72b8');
-        $('.my-hand-card').off().click(function() {
+        $('.my-hand-card').off().on('touchstart click', function(e) {
+        e.preventDefault();
+        if (e.type === 'click' && Date.now() - lastTouchTimestamp < 500) return;
+        if (e.type === 'touchstart') lastTouchTimestamp = Date.now();
         const handIdx = Number($(this).attr('data-handidx'));
         socket.emit('drawCardRequest', { roomCode, handCardIdx: handIdx });
         $('.my-hand-card').css('box-shadow', '');
@@ -170,51 +182,59 @@ $(function() {
     );
 
     // Select card from hand
-    $('.my-hand-card').off().click(function() {
+    $('.my-hand-card').off().on('touchstart click', function(e) {
+    e.preventDefault();
+    if (e.type === 'click' && Date.now() - lastTouchTimestamp < 500) return;
+    if (e.type === 'touchstart') lastTouchTimestamp = Date.now();
     selectedHandIdx = Number($(this).attr('data-handidx'));
     socket.emit('selectHandCard', { roomCode, handIdx: selectedHandIdx });
     updateGameUI(gameState); // Re-render to highlight card
     });
 
     // Cancel move
-    $('#cancel-move').off().click(function() {
-      selectedHandIdx = null;
-      updateGameUI(gameState);
+    $('#cancel-move').off().on('touchstart click', function(e) {
+        e.preventDefault();
+        if (e.type === 'click' && Date.now() - lastTouchTimestamp < 500) return;
+        if (e.type === 'touchstart') lastTouchTimestamp = Date.now();
+        selectedHandIdx = null;
+        updateGameUI(gameState);
     });
 
     // SENTA/double tap/simultaneous tap detection and play handler for piles
     $('.center-pile').each(function(i) {
-      $(this).off().on('click touchend', function(e) {
+    $(this).off().on('touchstart click', function(e) {
         e.preventDefault();
+        if (e.type === 'click' && Date.now() - lastTouchTimestamp < 500) return;
+        if (e.type === 'touchstart') lastTouchTimestamp = Date.now();
         const now = Date.now();
         pileTouchTimes[i] = now;
 
         // Double tap on pile
         if (now - lastTapTimes[i] < 350) {
-          if (canSenta()) {
+        if (canSenta()) {
             activateSenta();
             lastTapTimes[i] = 0;
             return;
-          }
+        }
         }
         lastTapTimes[i] = now;
 
         // Simultaneous tap on both piles
         if (Math.abs(pileTouchTimes[0] - pileTouchTimes[1]) < 350 && canSenta()) {
-          activateSenta();
-          pileTouchTimes[0] = pileTouchTimes[1] = 0;
-          return;
+        activateSenta();
+        pileTouchTimes[0] = pileTouchTimes[1] = 0;
+        return;
         }
 
         // Play card if one is selected
         if (selectedHandIdx !== null) {
-          const pileIdx = Number($(this).attr('data-pileidx'));
-          socket.emit('playCard', { roomCode, handIndex: selectedHandIdx, pileIndex: pileIdx }, function(resp) {
+        const pileIdx = Number($(this).attr('data-pileidx'));
+        socket.emit('playCard', { roomCode, handIndex: selectedHandIdx, pileIndex: pileIdx }, function(resp) {
             selectedHandIdx = null;
             updateGameUI(gameState);
-          });
+        });
         }
-      });
+    });
     });
   }
 

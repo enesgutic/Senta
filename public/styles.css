@@ -179,6 +179,10 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
   user-select: none;
   transition: background 0.17s, box-shadow 0.17s, color 0.17s;
   border: 2.5px solid #f4f6fa;
+  min-width: 44px;     /* At least Apple min size for touch */
+  min-height: 44px;
+  touch-action: manipulation; /* Tells browser: optimize for taps */
+  -webkit-tap-highlight-color: rgba(0,0,0,0); /* No grey highlight on iOS */
 }
 
 .card.selected {
@@ -241,7 +245,18 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
   margin-top: 30px;
   font-weight: 700;
 }
-
+.my-hand-card{
+  min-width: 44px;     /* At least Apple min size for touch */
+  min-height: 44px;
+  touch-action: manipulation; /* Tells browser: optimize for taps */
+  -webkit-tap-highlight-color: rgba(0,0,0,0); /* No grey highlight on iOS */
+}
+.opp-card, .center-pile{
+  min-width: 44px;     /* At least Apple min size for touch */
+  min-height: 44px;
+  touch-action: manipulation; /* Tells browser: optimize for taps */
+  -webkit-tap-highlight-color: rgba(0,0,0,0); /* No grey highlight on iOS */
+}
 .my-hand-cards-container {
   display: flex;
   justify-content: center;
@@ -293,7 +308,11 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
   background: rgba(30,32,40,0.74);
   user-select: none;
 }
-
+button:focus, .main-btn:focus, #draw-card-btn:focus,
+.card:focus, .my-hand-card:focus, .center-pile:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
 @keyframes draw-pulse {
   0% { transform: scale(1);}
   100% { transform: scale(1.08);}
