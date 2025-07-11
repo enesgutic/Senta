@@ -45,11 +45,12 @@ io.on('connection', (socket) => {
     const result = sentaAction(game, socket.id);
     if (result && result.update) {
         io.to(roomCode).emit('update', game.getPublicState());
-        // NEW: Let all players know to show the SENTA animation!
-        io.to(roomCode).emit('showSenta');
+        // Find the player who triggered SENTA and send their name to the clients
+        const triggeringPlayer = game.players.find(p => p.id === socket.id);
+        io.to(roomCode).emit('showSenta', triggeringPlayer ? triggeringPlayer.name : 'Unknown');
     }
     if (callback) callback(result);
-    });
+  });
 
   socket.on('rematch', ({ roomCode }, callback) => {
     const game = games[roomCode];

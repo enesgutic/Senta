@@ -100,9 +100,12 @@ function playCard(game, playerId, handIdx, pileIdx) {
   const centerPileTop = game.centerPiles[pileIdx][game.centerPiles[pileIdx].length - 1];
   if (isOneApart(card.value, centerPileTop.value)) {
     game.centerPiles[pileIdx].push(card);
-    player.hand.splice(handIdx, 1);
+    // If we have a new card to draw, *replace* the card at the played index
     if (player.deck.length > 0) {
-      player.hand.push(player.deck.pop());
+      player.hand[handIdx] = player.deck.pop();
+    } else {
+      // If no card in deck, just remove the played card
+      player.hand.splice(handIdx, 1);
     }
     if (player.hand.length === 0 && player.deck.length === 0) {
       game.winner = player.name;
@@ -205,6 +208,7 @@ function playerDrawCard(game, playerId, handCardIdx) {
   // Both ready: perform draw!
   const p0 = game.players[0];
   const p1 = game.players[1];
+  let placedCards = [null, null];
 
   [p0, p1].forEach((player, i) => {
     let card;
@@ -216,12 +220,46 @@ function playerDrawCard(game, playerId, handCardIdx) {
     ) {
       card = player.hand.splice(game.handCardChoice[player.id], 1)[0];
     }
-    if (card) game.centerPiles[i].push(card);
+    if (card) {
+      game.centerPiles[i].push(card);
+      placedCards[i] = card;
+    }
   });
 
   // Reset for next draw
   game.drawCardReady = [];
   game.handCardChoice = {};
+
+  // --- WIN CONDITION CHECK HERE ---
+  // If either player has no hand cards and no deck after placing a card, check for senta
+  for (let i = 0; i < 2; i++) {
+    const player = game.players[i];
+    if (player.hand.length === 0 && player.deck.length === 0) {
+      // Senta check
+      const piles = game.centerPiles;
+      if (
+        piles[0].length && piles[1].length &&
+        piles[0][piles[0].length-1].value === piles[1][piles[1].length-1].value
+      ) {
+        // Wait for senta to be called (give 2 seconds), otherwise this player wins
+        setTimeout(() => {
+          // If game.winner is still not set and still same top values, declare winner
+          if (!game.winner) {
+            const curPiles = game.centerPiles;
+            if (
+              curPiles[0].length && curPiles[1].length &&
+              curPiles[0][curPiles[0].length-1].value === curPiles[1][curPiles[1].length-1].value
+            ) {
+              game.winner = player.name;
+            }
+          }
+        }, 2000);
+      } else {
+        // Not a senta situation, declare winner immediately
+        game.winner = player.name;
+      }
+    }
+  }
 
   return { success: true, update: true };
 }

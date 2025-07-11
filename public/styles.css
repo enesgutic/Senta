@@ -32,11 +32,11 @@ body{
     font-size: 1rem;
   }
   .card {
-    width: 44px !important;
-    height: 64px !important;
-    font-size: 22px !important;
+    width: 50px !important;
+    height: 72px !important;
+    font-size: 25px !important;
     margin: 0 3px !important;
-    line-height: 64px !important;
+    line-height: 72px !important;
   }
   .main-btn, #draw-card-btn {
     font-size: 1.2rem !important;
@@ -161,8 +161,8 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
 
 .card {
   display: inline-block;
-  width: 54px;
-  height: 76px;
+  width: 60px;
+  height: 84px;
   border-radius: 13px;
   background: #fff;
   color: #121212;
@@ -170,10 +170,10 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
   font-family: 'Roboto Mono', 'Menlo', monospace;
   text-align: center;
   font-weight: bold;
-  font-size: 28px;
+  font-size: 32px;
   margin: 0 5px;
   vertical-align: middle;
-  line-height: 76px;
+  line-height: 84px;
   letter-spacing: 0.2px;
   position: relative;
   user-select: none;
@@ -246,14 +246,14 @@ button:disabled, .main-btn:disabled, #draw-card-btn:disabled {
   font-weight: 700;
 }
 .my-hand-card{
-  min-width: 44px;     /* At least Apple min size for touch */
-  min-height: 44px;
+  min-width: 50px;
+  min-height: 72px;
   touch-action: manipulation; /* Tells browser: optimize for taps */
   -webkit-tap-highlight-color: rgba(0,0,0,0); /* No grey highlight on iOS */
 }
 .opp-card, .center-pile{
-  min-width: 44px;     /* At least Apple min size for touch */
-  min-height: 44px;
+  min-width: 50px;
+  min-height: 72px;
   touch-action: manipulation; /* Tells browser: optimize for taps */
   -webkit-tap-highlight-color: rgba(0,0,0,0); /* No grey highlight on iOS */
 }

@@ -255,10 +255,10 @@ $(function() {
     socket.emit('senta', { roomCode });
   }
 
-  function showSentaAnimation() {
+  function showSentaAnimation(byPlayerName) {
     if ($('#senta-animation').length) return;
     const $div = $(`
-      <div id="senta-animation" style="
+        <div id="senta-animation" style="
         position:fixed;
         left:0;top:0;right:0;bottom:0;
         z-index:1000;
@@ -266,20 +266,23 @@ $(function() {
         align-items:center;
         justify-content:center;
         pointer-events:none;
-      ">
+        ">
         <span style="
-          font-size:72px;
-          font-weight:bold;
-          color:#ffc400;
-          text-shadow:0 2px 18px #222,0 2px 48px #c32;
-          animation:senta-bounce 2s;
-          font-family:Impact,Arial Black,sans-serif;
-        ">SENTA!</span>
-      </div>
+            font-size:72px;
+            font-weight:bold;
+            color:#ffc400;
+            text-shadow:0 2px 18px #222,0 2px 48px #c32;
+            animation:senta-bounce 4s;
+            font-family:Impact,Arial Black,sans-serif;
+            background:rgba(0,0,0,0.32);border-radius:18px;padding:18px 36px;
+        ">
+            SENTA by ${byPlayerName}!
+        </span>
+        </div>
     `);
     $('body').append($div);
-    setTimeout(() => $div.remove(), 2000);
-  }
+    setTimeout(() => $div.remove(), 4000); // Show for 4 seconds
+    }
 
   function displayCard(card) {
     if (!card) return '';
@@ -297,9 +300,9 @@ $(function() {
     updateGameUI(state);
   });
 
-  socket.on('showSenta', function() {
-    showSentaAnimation();
-  });
+  socket.on('showSenta', function(byPlayerName) {
+    showSentaAnimation(byPlayerName);
+});
 
   socket.on('handCardSelected', function({ playerIdx, handIdx }) {
     const idx = gameState.players[0].name === playerName ? 0 : 1;
