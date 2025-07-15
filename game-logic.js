@@ -38,6 +38,7 @@ function createGame(playerName, playerId) {
     sentaBuffer: false,
     lastUpdate: Date.now(),
     forceDrawVotes: {},
+    rematchVotes: {}, // <-- Add here, after forceDrawVotes
     getPublicState: function() {
       return {
         players: this.players.map((p, i) => ({
@@ -170,6 +171,7 @@ function rematch(game) {
   game.sentaPending = false;
   game.sentaBuffer = false;
   game.lastUpdate = Date.now();
+  game.rematchVotes = {}; 
 }
 
 // Voting for Draw Card button (by player index, 0 or 1)

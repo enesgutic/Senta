@@ -58,9 +58,29 @@ const games = {}; // roomCode: gameState
   });
 
   socket.on('rematch', ({ roomCode }, callback) => {
-    rematch(game);
-    game.started = true;
-    io.to(roomCode).emit('update', game.getPublicState());
+    const game = games[roomCode];
+    if (!game) return;
+    if (!game.rematchVotes) game.rematchVotes = {};
+    const playerIdx = game.players.findIndex(p => p.id === socket.id);
+    if (playerIdx === -1) return;
+
+    game.rematchVotes[playerIdx] = true;
+
+    // Notify both players of the rematch request and who requested
+    io.to(roomCode).emit('rematchRequested', {
+      playerIdx,
+      playerName: game.players[playerIdx].name,
+      votes: game.rematchVotes
+    });
+
+    // If both have agreed
+    if (game.rematchVotes[0] && game.rematchVotes[1]) {
+      rematch(game);
+      io.to(roomCode).emit('update', game.getPublicState());
+      io.to(roomCode).emit('rematchStarted');
+      game.rematchVotes = {}; // Reset for next round
+    }
+
     if (callback) callback({ success: true });
   });
 

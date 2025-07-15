@@ -172,10 +172,12 @@ $(function() {
       $('#game-over').html(`
         <div style="margin:20px;font-size:30px;"><b>${state.winner}</b> wins!</div>
         <button id="rematch-btn">Rematch</button>
+        <div id="rematch-message"></div>
       `);
       $('#rematch-btn').off().click(function() {
         selectedHandIdx = null;
         socket.emit('rematch', { roomCode });
+        $('#rematch-btn').prop('disabled', true).text('Waiting for opponent...');
       });
     } else {
       $('#game-over').empty();
@@ -318,5 +320,29 @@ $(function() {
     });
 
   showNameForm();
+});
+
+socket.on('rematchRequested', function({ playerIdx, playerName, votes }) {
+  // My index
+  const myIdx = (gameState && gameState.players[0].name === playerName) ? 1 : 0;
+  // If *I* have not yet voted (didn't click rematch)
+  if (!votes[myIdx]) {
+    $('#rematch-message').html(
+      `<b>${playerName}</b> wants a rematch.<br>
+      <button id="accept-rematch-btn">Accept Rematch</button>`
+    );
+    $('#accept-rematch-btn').off().click(function() {
+      socket.emit('rematch', { roomCode });
+      $('#accept-rematch-btn').prop('disabled', true).text('Waiting for opponent...');
+    });
+  } else {
+    // I already voted - just show waiting
+    $('#rematch-message').html(`Waiting for opponent to accept...`);
+  }
+});
+
+// Optionally, clear rematch UI when rematch actually starts
+socket.on('rematchStarted', function() {
+  $('#rematch-message').empty();
 });
 
