@@ -31,9 +31,8 @@ const games = {}; // roomCode: gameState
     socket.join(roomCode);
     callback({ success: true });
     // Start the countdown only if not started yet
-    if (!game.countdownActive && !game.started) {
-      startGameWithCountdown(roomCode, game, io);
-    }
+    game.started = true;
+    io.to(roomCode).emit('update', game.getPublicState());
   });
 
   socket.on('playCard', ({ roomCode, handIndex, pileIndex }, callback) => {
@@ -59,10 +58,9 @@ const games = {}; // roomCode: gameState
   });
 
   socket.on('rematch', ({ roomCode }, callback) => {
-    const game = games[roomCode];
-    if (!game) return;
     rematch(game);
-    startGameWithCountdown(roomCode, game, io);
+    game.started = true;
+    io.to(roomCode).emit('update', game.getPublicState());
     if (callback) callback({ success: true });
   });
 
@@ -114,27 +112,6 @@ const games = {}; // roomCode: gameState
   });
 });
 
-
-function startGameWithCountdown(roomCode, game, io) {
-  let countdown = 5;
-  game.countdownActive = true;
-  game.started = false; // Prevent early gameplay
-  io.to(roomCode).emit('countdown', { value: countdown });
-
-  const interval = setInterval(() => {
-    countdown--;
-    if (countdown > 0) {
-      io.to(roomCode).emit('countdown', { value: countdown });
-    } else {
-      clearInterval(interval);
-      game.countdownActive = false;
-      game.started = true;
-      io.to(roomCode).emit('countdown', { value: 0 });
-      // THIS MUST BE PRESENT:
-      io.to(roomCode).emit('update', game.getPublicState());
-    }
-  }, 1000);
-}
 
 
 server.listen(3001, () => console.log('Server running on :3001'));

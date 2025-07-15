@@ -38,7 +38,6 @@ function createGame(playerName, playerId) {
     sentaBuffer: false,
     lastUpdate: Date.now(),
     forceDrawVotes: {},
-    countdownActive: false,
     getPublicState: function() {
       return {
         players: this.players.map((p, i) => ({
@@ -50,7 +49,6 @@ function createGame(playerName, playerId) {
         centerPiles: this.centerPiles,
         started: this.started,
         winner: this.winner,
-        countdownActive: this.countdownActive || false,
       }
     }
   };
@@ -172,7 +170,6 @@ function rematch(game) {
   game.sentaPending = false;
   game.sentaBuffer = false;
   game.lastUpdate = Date.now();
-  game.countdownActive = false;
 }
 
 // Voting for Draw Card button (by player index, 0 or 1)

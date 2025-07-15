@@ -17,37 +17,6 @@ $(function() {
   let countdownValue = null;
   
 
-  function showCountdown(num) {
-    if (num <= 0) {
-      $('#countdown-overlay').remove();
-      countdownValue = null;
-      return;
-    }
-    countdownValue = num;
-    if (!$('#countdown-overlay').length) {
-      $('body').append('<div id="countdown-overlay"></div>');
-    }
-    $('#countdown-overlay').html(
-      `<div style="
-        position:fixed;
-        top:0;left:0;right:0;bottom:0;
-        z-index:3000;
-        background:rgba(20,20,32,0.90);
-        display:flex;
-        align-items:center;socket.on('countdow
-        justify-content:center;
-        ">
-          <span style="
-            font-size: 96px;
-            color: #fbbf24;
-            font-weight: bold;
-            text-shadow: 0 2px 24px #111, 0 2px 54px #111;
-            font-family: Impact, Arial Black, sans-serif;
-          ">${num}</span>
-      </div>`
-    );
-  }
-
   function showNameForm() {
     $('#game-root').html(`
       <h2>Enter your nickname</h2>
@@ -123,12 +92,6 @@ $(function() {
     gameState = state;
     if (!state) return;
 
-    if (state.countdownActive || !state.started) {
-      $('#game-controls').html('<div style="color:#ffd900;text-align:center;">Game starting soon...</div>');
-      $('#draw-card-btn').prop('disabled', true);
-      return;
-    }
-
     const idx = state.players[0].name === playerName ? 0 : 1;
     const me = state.players[idx];
     const opp = state.players[1 - idx];
@@ -192,9 +155,6 @@ $(function() {
         $('#draw-card-btn').prop('disabled', true).text('Waiting for other player...');
         });
     }
-    });
-    socket.on('countdown', function({ value }) {
-      showCountdown(value);
     });
 
     // Your hand (selectable, centered, highlighted if selected)
