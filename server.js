@@ -96,8 +96,8 @@ const games = {}; // roomCode: gameState
     const game = games[roomCode];
     if (!game) return;
     const result = playerDrawCard(game, socket.id, handCardIdx);
-    if (result && result.update) io.to(roomCode).emit('update', game.getPublicState());
-    // After both have requested, reset button (let both click again next round)
+    // Always emit update so opponent can see that someone pressed
+    io.to(roomCode).emit('update', game.getPublicState());
     if (game.drawCardReady && game.drawCardReady.length === 0) {
       io.to(roomCode).emit('drawCardReset');
     }

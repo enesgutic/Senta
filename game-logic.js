@@ -40,18 +40,20 @@ function createGame(playerName, playerId) {
     forceDrawVotes: {},
     rematchVotes: {}, // <-- Add here, after forceDrawVotes
     getPublicState: function() {
-      return {
-        players: this.players.map((p, i) => ({
-          name: p.name,
-          hand: p.hand,
-          deckCount: p.deck.length,
-          connected: p.connected,
-        })),
-        centerPiles: this.centerPiles,
-        started: this.started,
-        winner: this.winner,
-      }
-    }
+  return {
+    players: this.players.map((p, i) => ({
+      id: p.id,            // <--- ADD THIS LINE!
+      name: p.name,
+      hand: p.hand,
+      deckCount: p.deck.length,
+      connected: p.connected,
+    })),
+    centerPiles: this.centerPiles,
+    started: this.started,
+    winner: this.winner,
+    drawCardReady: this.drawCardReady ? [...this.drawCardReady] : [],
+  }
+}
   };
   return { roomCode, game };
 }
@@ -219,7 +221,9 @@ function playerDrawCard(game, playerId, handCardIdx) {
   game.drawCardReady.push(playerId);
 
   // Wait for both
-  if (game.drawCardReady.length < 2) return { success: true, update: false };
+  if (game.drawCardReady.length < 2) {
+    return { success: true, update: true }; // NOTE: now update so frontend can react
+  }
 
   // Both ready: perform draw!
   const p0 = game.players[0];

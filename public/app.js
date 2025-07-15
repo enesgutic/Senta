@@ -96,6 +96,11 @@ $(function() {
     const me = state.players[idx];
     const opp = state.players[1 - idx];
 
+    // Now use the id property (much safer than socket.id)
+    const drawCardReady = Array.isArray(state.drawCardReady) ? state.drawCardReady : [];
+    const hasPressedMe = drawCardReady.includes(me.id);
+    const hasPressedOpp = drawCardReady.includes(opp.id);
+
     // Opponent info at top
     $('#opponent-info').html(`
     <div style="color:#fff;background:#2b2f3a;padding:9px 18px 9px 20px;border-radius:30px 13px 13px 30px;min-width:120px;box-shadow:0 2px 14px #0012;display:inline-block;margin-bottom:16px;">
@@ -156,6 +161,17 @@ $(function() {
         });
     }
     });
+
+    if (state.drawCardReady && state.drawCardReady.length === 1) {
+      // If the opponent pressed but not me:
+      if (!hasPressedMe && hasPressedOpp) {
+        $('#game-controls').append('<div style="color:#ffd900;text-align:center;font-size:1.2em;margin-top:10px;">Opponent wants to draw a card!</div>');
+      }
+      // If I pressed but not opponent:
+      if (hasPressedMe && !hasPressedOpp) {
+        $('#game-controls').append('<div style="color:#ffd900;text-align:center;font-size:1.2em;margin-top:10px;">Waiting for opponent to draw...</div>');
+      }
+    }
 
     // Your hand (selectable, centered, highlighted if selected)
     let myHand = `
