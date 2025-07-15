@@ -1,6 +1,10 @@
 $(function() {
   const socket = io();
 
+  socket.on('drawCardReset', function() {
+    $('#draw-card-btn').prop('disabled', false).text('Draw Card');
+  });
+
   let playerName = '';
   let roomCode = '';
   let isHost = false;
@@ -354,7 +358,3 @@ $(function() {
   showNameForm();
 });
 
-
-socket.on('drawCardReset', function() {
-  $('#draw-card-btn').prop('disabled', false).text('Draw Card');
-});
