@@ -23,18 +23,15 @@ const games = {}; // roomCode: gameState
   })// io.to(roomCode).emit('update', game.getPublicState());
   });
 
-  socket.on('joinRoom', ({ roomCode, playerName }, callback) => {
-    const game = games[roomCode];
-    if (!game) return callback({ error: 'Room not found.' });
-    const joinRes = joinGame(game, playerName, socket.id);
-    if (!joinRes.success) return callback({ error: joinRes.error });
+  io.on('connection', (socket) => {
+  // CREATE ROOM
+  socket.on('createRoom', (playerName, callback) => {
+    const { roomCode, game } = createGame(playerName, socket.id);
+    games[roomCode] = game;
     socket.join(roomCode);
-    callback({ success: true });
-
-    // Start the countdown only if not started yet
-    if (!game.countdownActive && !game.started) {
-      startGameWithCountdown(roomCode, game, io);
-    }
+    callback({ roomCode });
+    // Don't start game immediately, just wait for 2nd player
+    // io.to(roomCode).emit('update', game.getPublicState());
   });
 
   socket.on('playCard', ({ roomCode, handIndex, pileIndex }, callback) => {
@@ -114,6 +111,7 @@ socket.on('disconnect', () => {
       io.to(roomCode).emit('update', game.getPublicState());
     }
   }
+});
 });
 
 
