@@ -10,7 +10,39 @@ $(function() {
   let pileTouchTimes = [0, 0]; // For SENTA detection (simultaneous tap)
   let lastTapTimes = [0, 0];   // For SENTA detection (double tap)
   let lastTouchTimestamp = 0;
+  let countdownValue = null;
   
+
+  function showCountdown(num) {
+    if (num <= 0) {
+      $('#countdown-overlay').remove();
+      countdownValue = null;
+      return;
+    }
+    countdownValue = num;
+    if (!$('#countdown-overlay').length) {
+      $('body').append('<div id="countdown-overlay"></div>');
+    }
+    $('#countdown-overlay').html(
+      `<div style="
+        position:fixed;
+        top:0;left:0;right:0;bottom:0;
+        z-index:3000;
+        background:rgba(20,20,32,0.90);
+        display:flex;
+        align-items:center;socket.on('countdow
+        justify-content:center;
+        ">
+          <span style="
+            font-size: 96px;
+            color: #fbbf24;
+            font-weight: bold;
+            text-shadow: 0 2px 24px #111, 0 2px 54px #111;
+            font-family: Impact, Arial Black, sans-serif;
+          ">${num}</span>
+      </div>`
+    );
+  }
 
   function showNameForm() {
     $('#game-root').html(`
@@ -82,6 +114,11 @@ $(function() {
     });
     updateGameUI(gameState);
   }
+  if (state.countdownActive || !state.started) {
+    $('#game-controls').html('<div style="color:#ffd900;text-align:center;">Game starting soon...</div>');
+    $('#draw-card-btn').prop('disabled', true);
+    return;
+  }
 
   function updateGameUI(state) {
     gameState = state;
@@ -149,6 +186,9 @@ $(function() {
         $('#draw-card-btn').prop('disabled', true).text('Waiting for other player...');
         });
     }
+    });
+    socket.on('countdown', function({ value }) {
+      showCountdown(value);
     });
 
     // Your hand (selectable, centered, highlighted if selected)
@@ -255,10 +295,10 @@ $(function() {
     socket.emit('senta', { roomCode });
   }
 
-  function showSentaAnimation(byPlayerName) {
+  function showSentaAnimation(playerName) {
     if ($('#senta-animation').length) return;
     const $div = $(`
-        <div id="senta-animation" style="
+      <div id="senta-animation" style="
         position:fixed;
         left:0;top:0;right:0;bottom:0;
         z-index:1000;
@@ -266,23 +306,20 @@ $(function() {
         align-items:center;
         justify-content:center;
         pointer-events:none;
-        ">
+      ">
         <span style="
-            font-size:72px;
-            font-weight:bold;
-            color:#ffc400;
-            text-shadow:0 2px 18px #222,0 2px 48px #c32;
-            animation:senta-bounce 4s;
-            font-family:Impact,Arial Black,sans-serif;
-            background:rgba(0,0,0,0.32);border-radius:18px;padding:18px 36px;
-        ">
-            SENTA by ${byPlayerName}!
-        </span>
-        </div>
+          font-size:72px;
+          font-weight:bold;
+          color:#ffc400;
+          text-shadow:0 2px 18px #222,0 2px 48px #c32;
+          animation:senta-bounce 4s;
+          font-family:Impact,Arial Black,sans-serif;
+        ">SENTA by ${playerName || 'Player'}!</span>
+      </div>
     `);
     $('body').append($div);
-    setTimeout(() => $div.remove(), 4000); // Show for 4 seconds
-    }
+    setTimeout(() => $div.remove(), 4000); // 4 seconds, slightly longer than server's 3 seconds
+  }
 
   function displayCard(card) {
     if (!card) return '';
@@ -300,9 +337,9 @@ $(function() {
     updateGameUI(state);
   });
 
-  socket.on('showSenta', function(byPlayerName) {
-    showSentaAnimation(byPlayerName);
-});
+  socket.on('showSenta', function({ playerName }) {
+    showSentaAnimation(playerName);
+  });
 
   socket.on('handCardSelected', function({ playerIdx, handIdx }) {
     const idx = gameState.players[0].name === playerName ? 0 : 1;

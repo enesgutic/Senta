@@ -131,6 +131,11 @@ function sentaAction(game, playerId) {
   opponent.deck = allCenter.concat(opponent.deck);
   opponent.deck = opponent.deck.sort(() => Math.random() - 0.5);
 
+  // === NEW CODE to refill opponent hand up to 5 ===
+  while (opponent.hand.length < 5 && opponent.deck.length > 0) {
+    opponent.hand.push(opponent.deck.pop());
+  }
+
   // After SENTA, center piles are empty!
   game.centerPiles[0] = [];
   game.centerPiles[1] = [];
@@ -139,6 +144,8 @@ function sentaAction(game, playerId) {
 
   return { success: true, update: true };
 }
+
+
 
 function rematch(game) {
   const deck = createDeck();
@@ -156,6 +163,13 @@ function rematch(game) {
   ];
   game.winner = null;
   game.started = true;
+  // Reset all temporary/turn state
+  game.forceDrawVotes = {};
+  game.drawCardReady = [];
+  game.handCardChoice = {};
+  game.sentaPending = false;
+  game.sentaBuffer = false;
+  game.lastUpdate = Date.now();
 }
 
 // Voting for Draw Card button (by player index, 0 or 1)

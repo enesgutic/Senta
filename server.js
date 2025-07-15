@@ -12,13 +12,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const games = {}; // roomCode: gameState
 
-io.on('connection', (socket) => {
+  io.on('connection', (socket) => {
+  // CREATE ROOM
   socket.on('createRoom', (playerName, callback) => {
     const { roomCode, game } = createGame(playerName, socket.id);
     games[roomCode] = game;
     socket.join(roomCode);
     callback({ roomCode });
-    io.to(roomCode).emit('update', game.getPublicState());
+    // Don't start game immediately, just wait for 2nd player
+  })// io.to(roomCode).emit('update', game.getPublicState());
   });
 
   socket.on('joinRoom', ({ roomCode, playerName }, callback) => {
@@ -28,7 +30,11 @@ io.on('connection', (socket) => {
     if (!joinRes.success) return callback({ error: joinRes.error });
     socket.join(roomCode);
     callback({ success: true });
-    io.to(roomCode).emit('update', game.getPublicState());
+
+    // Start the countdown only if not started yet
+    if (!game.countdownActive && !game.started) {
+      startGameWithCountdown(roomCode, game, io);
+    }
   });
 
   socket.on('playCard', ({ roomCode, handIndex, pileIndex }, callback) => {
@@ -42,21 +48,24 @@ io.on('connection', (socket) => {
   socket.on('senta', ({ roomCode }, callback) => {
     const game = games[roomCode];
     if (!game) return;
-    const result = sentaAction(game, socket.id);
-    if (result && result.update) {
-        io.to(roomCode).emit('update', game.getPublicState());
-        // Find the player who triggered SENTA and send their name to the clients
-        const triggeringPlayer = game.players.find(p => p.id === socket.id);
-        io.to(roomCode).emit('showSenta', triggeringPlayer ? triggeringPlayer.name : 'Unknown');
-    }
-    if (callback) callback(result);
+
+    // 1. Show SENTA to all clients right away (with who initiated it)
+    const player = game.players.find(p => p.id === socket.id);
+    io.to(roomCode).emit('showSenta', { playerName: player ? player.name : 'Player' });
+
+    // 2. Wait 3 seconds before applying SENTA logic
+    setTimeout(() => {
+      const result = sentaAction(game, socket.id);
+      if (result && result.update) io.to(roomCode).emit('update', game.getPublicState());
+      if (callback) callback(result);
+    }, 3000);
   });
 
   socket.on('rematch', ({ roomCode }, callback) => {
     const game = games[roomCode];
     if (!game) return;
     rematch(game);
-    io.to(roomCode).emit('update', game.getPublicState());
+    startGameWithCountdown(roomCode, game, io);
     if (callback) callback({ success: true });
   });
 
@@ -91,18 +100,42 @@ io.on('connection', (socket) => {
     });
 
 socket.on('disconnect', () => {
-    // Find the game/room this socket was in
-    for (const roomCode in games) {
-      const game = games[roomCode];
-      const playerIdx = game.players.findIndex(p => p.id === socket.id);
-      if (playerIdx !== -1) {
-        game.winner = "Game Over (player left)";
-        io.to(roomCode).emit('update', game.getPublicState());
-        // Optionally: remove game from memory after a delay
-        // delete games[roomCode];
-      }
+  for (const roomCode in games) {
+    const game = games[roomCode];
+    const playerIdx = game.players.findIndex(p => p.id === socket.id);
+    if (playerIdx !== -1) {
+      game.winner = "Game Over (player left)";
+      // Reset temporary states
+      game.forceDrawVotes = {};
+      game.drawCardReady = [];
+      game.handCardChoice = {};
+      game.sentaPending = false;
+      game.sentaBuffer = false;
+      io.to(roomCode).emit('update', game.getPublicState());
     }
-  });
-}); // <-- This closes the io.on('connection', ...) function
+  }
+});
+
+
+function startGameWithCountdown(roomCode, game, io) {
+  let countdown = 5;
+  game.countdownActive = true;
+  game.started = false; // Prevent early gameplay
+  io.to(roomCode).emit('countdown', { value: countdown });
+
+  const interval = setInterval(() => {
+    countdown--;
+    if (countdown > 0) {
+      io.to(roomCode).emit('countdown', { value: countdown });
+    } else {
+      clearInterval(interval);
+      game.countdownActive = false;
+      game.started = true;
+      io.to(roomCode).emit('countdown', { value: 0 });
+      io.to(roomCode).emit('update', game.getPublicState());
+    }
+  }, 1000);
+}
+
 
 server.listen(3001, () => console.log('Server running on :3001'));
