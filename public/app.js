@@ -118,15 +118,17 @@ $(function() {
     });
     updateGameUI(gameState);
   }
-  if (state.countdownActive || !state.started) {
-    $('#game-controls').html('<div style="color:#ffd900;text-align:center;">Game starting soon...</div>');
-    $('#draw-card-btn').prop('disabled', true);
-    return;
-  }
 
   function updateGameUI(state) {
     gameState = state;
     if (!state) return;
+
+    if (state.countdownActive || !state.started) {
+      $('#game-controls').html('<div style="color:#ffd900;text-align:center;">Game starting soon...</div>');
+      $('#draw-card-btn').prop('disabled', true);
+      return;
+    }
+
     const idx = state.players[0].name === playerName ? 0 : 1;
     const me = state.players[idx];
     const opp = state.players[1 - idx];
