@@ -130,6 +130,7 @@ function startGameWithCountdown(roomCode, game, io) {
       game.countdownActive = false;
       game.started = true;
       io.to(roomCode).emit('countdown', { value: 0 });
+      // THIS MUST BE PRESENT:
       io.to(roomCode).emit('update', game.getPublicState());
     }
   }, 1000);
