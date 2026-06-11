@@ -1,6 +1,6 @@
 {
   "short_name": "Senta",
-  "name": "Senta, who's faster?",
+  "name": "Senta - Card Race",
   "icons": [
     {
       "src": "/senta-logo-192px.png",
@@ -14,8 +14,9 @@
     }
   ],
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#14161a",
-  "theme_color": "#14161a",
+  "background_color": "#101820",
+  "theme_color": "#101820",
   "orientation": "portrait"
 }

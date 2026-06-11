@@ -2,136 +2,234 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-const { createGame, joinGame, playCard, sentaAction, rematch, playerDrawCard } = require('./game-logic');
+const {
+  createGame,
+  joinGame,
+  playCard,
+  sentaAction,
+  rematch,
+  playerForceDraw,
+  playerDrawCard,
+  selectHandCard,
+  finalizePendingWin,
+  voteToStart,
+  startRound
+} = require('./game-logic');
 
+const PORT = process.env.PORT || 3000;
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-const games = {}; // roomCode: gameState
+const games = {};
+const pendingWinTimers = {};
+const startTimers = {};
 
-  io.on('connection', (socket) => {
-  // CREATE ROOM
+function sendUpdate(roomCode) {
+  const game = games[roomCode];
+  if (!game) return;
+
+  io.to(roomCode).emit('update', game.getPublicState());
+  schedulePendingWin(roomCode);
+}
+
+function clearPendingWinTimer(roomCode) {
+  if (pendingWinTimers[roomCode]) {
+    clearTimeout(pendingWinTimers[roomCode]);
+    delete pendingWinTimers[roomCode];
+  }
+}
+
+function clearStartTimer(roomCode) {
+  if (startTimers[roomCode]) {
+    clearTimeout(startTimers[roomCode]);
+    delete startTimers[roomCode];
+  }
+}
+
+function schedulePendingWin(roomCode) {
+  const game = games[roomCode];
+  clearPendingWinTimer(roomCode);
+
+  if (!game || !game.pendingWin || game.winner) return;
+
+  const delay = Math.max(0, game.pendingWin.deadline - Date.now());
+  pendingWinTimers[roomCode] = setTimeout(() => {
+    const result = finalizePendingWin(game);
+    if (result.update) sendUpdate(roomCode);
+  }, delay + 25);
+}
+
+function getGame(roomCode, callback) {
+  const game = games[roomCode];
+  if (!game && callback) callback({ success: false, error: 'Room not found.' });
+  return game;
+}
+
+function scheduleStart(roomCode) {
+  const game = games[roomCode];
+  clearStartTimer(roomCode);
+
+  if (!game || !game.countdownEndsAt || game.started) return;
+
+  const delay = Math.max(0, game.countdownEndsAt - Date.now());
+  startTimers[roomCode] = setTimeout(() => {
+    const result = startRound(game);
+    if (result.update) {
+      io.to(roomCode).emit('gameStarted');
+      sendUpdate(roomCode);
+    }
+  }, delay + 25);
+}
+
+io.on('connection', socket => {
   socket.on('createRoom', (playerName, callback) => {
-    const { roomCode, game } = createGame(playerName, socket.id);
+    const name = String(playerName || '').trim().slice(0, 14) || 'Player';
+    const { roomCode, game } = createGame(name, socket.id);
+
     games[roomCode] = game;
     socket.join(roomCode);
-    callback({ roomCode });
-    // Don't start game immediately, just wait for 2nd player
+    callback({ success: true, roomCode, state: game.getPublicState() });
   });
 
-  // JOIN ROOM
   socket.on('joinRoom', ({ roomCode, playerName }, callback) => {
-    const game = games[roomCode];
-    if (!game) return callback({ error: 'Room not found.' });
-    const joinRes = joinGame(game, playerName, socket.id);
-    if (!joinRes.success) return callback({ error: joinRes.error });
-    socket.join(roomCode);
-    callback({ success: true });
-    // Start the countdown only if not started yet
-    game.started = true;
-    io.to(roomCode).emit('update', game.getPublicState());
+    const normalizedRoom = String(roomCode || '').trim().toUpperCase();
+    const game = getGame(normalizedRoom, callback);
+    if (!game) return;
+
+    const name = String(playerName || '').trim().slice(0, 14) || 'Player';
+    const result = joinGame(game, name, socket.id);
+    if (!result.success) return callback(result);
+
+    socket.join(normalizedRoom);
+    callback({ success: true, state: game.getPublicState() });
+    sendUpdate(normalizedRoom);
   });
 
   socket.on('playCard', ({ roomCode, handIndex, pileIndex }, callback) => {
-    const game = games[roomCode];
+    const game = getGame(roomCode, callback);
     if (!game) return;
-    const result = playCard(game, socket.id, handIndex, pileIndex);
-    if (result && result.update) io.to(roomCode).emit('update', game.getPublicState());
+
+    const result = playCard(game, socket.id, Number(handIndex), Number(pileIndex));
+    if (result.update) sendUpdate(roomCode);
+    if (callback) callback(result);
+  });
+
+  socket.on('startGame', ({ roomCode }, callback) => {
+    const game = getGame(roomCode, callback);
+    if (!game) return;
+
+    const result = voteToStart(game, socket.id);
+    if (result.update) {
+      sendUpdate(roomCode);
+      if (result.countdown) scheduleStart(roomCode);
+    }
     if (callback) callback(result);
   });
 
   socket.on('senta', ({ roomCode }, callback) => {
-    const game = games[roomCode];
+    const game = getGame(roomCode, callback);
     if (!game) return;
-    // 1. Show SENTA to all clients right away (with who initiated it)
-    const player = game.players.find(p => p.id === socket.id);
-    io.to(roomCode).emit('showSenta', { playerName: player ? player.name : 'Player' });
-    // 2. Wait 3 seconds before applying SENTA logic
+
+    const player = game.players.find(currentPlayer => currentPlayer.id === socket.id);
+    if (!player) {
+      if (callback) callback({ success: false, error: 'Player not found.' });
+      return;
+    }
+
+    io.to(roomCode).emit('showSenta', { playerName: player.name });
+
     setTimeout(() => {
       const result = sentaAction(game, socket.id);
-      if (result && result.update) io.to(roomCode).emit('update', game.getPublicState());
+      if (result.update) sendUpdate(roomCode);
       if (callback) callback(result);
-    }, 3000);
+    }, 900);
   });
 
   socket.on('rematch', ({ roomCode }, callback) => {
-    const game = games[roomCode];
+    const game = getGame(roomCode, callback);
     if (!game) return;
-    if (!game.rematchVotes) game.rematchVotes = {};
-    const playerIdx = game.players.findIndex(p => p.id === socket.id);
-    if (playerIdx === -1) return;
+
+    const playerIdx = game.players.findIndex(player => player.id === socket.id);
+    if (playerIdx === -1) {
+      if (callback) callback({ success: false, error: 'Player not found.' });
+      return;
+    }
 
     game.rematchVotes[playerIdx] = true;
 
-    // Notify both players of the rematch request and who requested
-    io.to(roomCode).emit('rematchRequested', {
-      playerIdx,
-      playerName: game.players[playerIdx].name,
-      votes: game.rematchVotes
-    });
-
-    // If both have agreed
     if (game.rematchVotes[0] && game.rematchVotes[1]) {
+      clearPendingWinTimer(roomCode);
+      clearStartTimer(roomCode);
       rematch(game);
-      io.to(roomCode).emit('update', game.getPublicState());
       io.to(roomCode).emit('rematchStarted');
-      game.rematchVotes = {}; // Reset for next round
+      sendUpdate(roomCode);
+    } else {
+      io.to(roomCode).emit('rematchRequested', {
+        playerIdx,
+        playerName: game.players[playerIdx].name,
+        votes: { ...game.rematchVotes }
+      });
+      sendUpdate(roomCode);
     }
 
     if (callback) callback({ success: true });
   });
 
   socket.on('forceDraw', ({ roomCode }, callback) => {
-    const game = games[roomCode];
+    const game = getGame(roomCode, callback);
     if (!game) return;
+
     const result = playerForceDraw(game, socket.id);
-    if (result && result.update) io.to(roomCode).emit('update', game.getPublicState());
+    if (result.update) sendUpdate(roomCode);
     if (callback) callback(result);
   });
 
   socket.on('drawCardRequest', ({ roomCode, handCardIdx }, callback) => {
-    const game = games[roomCode];
+    const game = getGame(roomCode, callback);
     if (!game) return;
-    const result = playerDrawCard(game, socket.id, handCardIdx);
-    // Always emit update so opponent can see that someone pressed
-    io.to(roomCode).emit('update', game.getPublicState());
-    if (game.drawCardReady && game.drawCardReady.length === 0) {
-      io.to(roomCode).emit('drawCardReset');
-    }
+
+    const result = playerDrawCard(
+      game,
+      socket.id,
+      typeof handCardIdx === 'number' ? handCardIdx : undefined
+    );
+
+    if (result.update || result.success) sendUpdate(roomCode);
+    if (game.drawCardReady.length === 0) io.to(roomCode).emit('drawCardReset');
     if (callback) callback(result);
   });
 
-  socket.on('selectHandCard', ({ roomCode, handIdx }) => {
-    const game = games[roomCode];
+  socket.on('selectHandCard', ({ roomCode, handIdx }, callback) => {
+    const game = getGame(roomCode, callback);
     if (!game) return;
-    // Find the player index
-    let playerIdx = game.players.findIndex(p => p.id === socket.id);
-    if (playerIdx === -1) return;
-    game.players[playerIdx].selectedHandIdx = handIdx;
-    io.to(roomCode).emit('handCardSelected', { playerIdx, handIdx });
+
+    const result = selectHandCard(game, socket.id, Number(handIdx));
+    if (result.update) sendUpdate(roomCode);
+    if (callback) callback(result);
   });
 
   socket.on('disconnect', () => {
-    for (const roomCode in games) {
+    for (const roomCode of Object.keys(games)) {
       const game = games[roomCode];
-      const playerIdx = game.players.findIndex(p => p.id === socket.id);
+      const playerIdx = game.players.findIndex(player => player.id === socket.id);
+
       if (playerIdx !== -1) {
-        game.winner = "Game Over (player left)";
-        // Reset temporary states
-        game.forceDrawVotes = {};
+        game.players[playerIdx].connected = false;
+        game.winner = 'Game over: player left';
+        game.pendingWin = null;
+        game.countdownEndsAt = null;
+        game.startVotes = {};
         game.drawCardReady = [];
         game.handCardChoice = {};
-        game.sentaPending = false;
-        game.sentaBuffer = false;
-        io.to(roomCode).emit('update', game.getPublicState());
+        clearPendingWinTimer(roomCode);
+        clearStartTimer(roomCode);
+        sendUpdate(roomCode);
       }
     }
   });
 });
 
-
-
-server.listen(3001, () => console.log('Server running on :3001'));
+server.listen(PORT, () => console.log(`Server running on :${PORT}`));
