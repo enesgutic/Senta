@@ -1,12 +1,13 @@
 (() => {
   const socket = io();
   const root = document.querySelector('#game-root');
+  const ACTIVE_ROOM_KEY = 'senta:room';
   let roomTicker = null;
 
   const state = {
     screen: 'name',
     playerName: localStorage.getItem('senta:name') || '',
-    roomCode: '',
+    roomCode: localStorage.getItem(ACTIVE_ROOM_KEY) || '',
     game: null,
     selectedHandIdx: null,
     drawMode: false,
@@ -77,6 +78,16 @@
   function setNotice(message) {
     state.notice = message || '';
     if (state.screen === 'game') renderGame();
+  }
+
+  function rememberRoom(roomCode) {
+    state.roomCode = String(roomCode || '').toUpperCase();
+    if (state.roomCode) localStorage.setItem(ACTIVE_ROOM_KEY, state.roomCode);
+  }
+
+  function forgetRoom() {
+    state.roomCode = '';
+    localStorage.removeItem(ACTIVE_ROOM_KEY);
   }
 
   function stopRoomTicker() {
@@ -415,7 +426,7 @@
         return;
       }
 
-      state.roomCode = response.roomCode;
+      rememberRoom(response.roomCode);
       state.game = response.state;
       state.selectedHandIdx = null;
       showRoomCreated();
@@ -429,7 +440,7 @@
         return;
       }
 
-      state.roomCode = roomCode.toUpperCase();
+      rememberRoom(roomCode);
       state.game = response.state;
       state.selectedHandIdx = null;
       showRoomCreated();
@@ -441,6 +452,30 @@
     if (error) error.textContent = message;
   }
 
+  function showStateScreen(nextGame) {
+    if (!nextGame) return;
+
+    state.game = nextGame;
+    rememberRoom(nextGame.roomCode || state.roomCode);
+    state.notice = '';
+
+    if (nextGame.winner) {
+      showWinnerScreen();
+    } else if (nextGame.countdownEndsAt && !nextGame.started) {
+      showCountdownScreen();
+    } else if ((state.screen === 'room-created' || state.screen === 'lobby' || state.screen === 'countdown') && !nextGame.started) {
+      renderRoomCreated();
+    } else if ((state.screen === 'room-created' || state.screen === 'countdown') && nextGame.started) {
+      showGame();
+    } else if (state.screen === 'game' || state.screen === 'winner') {
+      showGame();
+    } else if (nextGame.started) {
+      showGame();
+    } else {
+      showRoomCreated();
+    }
+  }
+
   function clearSelection() {
     state.selectedHandIdx = null;
     state.drawMode = false;
@@ -449,7 +484,7 @@
 
   function goHome() {
     state.screen = 'lobby';
-    state.roomCode = '';
+    forgetRoom();
     state.game = null;
     state.selectedHandIdx = null;
     state.drawMode = false;
@@ -555,7 +590,10 @@
 
     const action = actionTarget.dataset.action;
     if (action === 'create-room') createRoom();
-    if (action === 'leave-room') window.location.reload();
+    if (action === 'leave-room') {
+      forgetRoom();
+      window.location.reload();
+    }
     if (action === 'copy-room' && state.roomCode) navigator.clipboard && navigator.clipboard.writeText(state.roomCode);
     if (action === 'cancel-select') clearSelection();
     if (action === 'senta') requestSenta();
@@ -587,23 +625,23 @@
     }
   });
 
-  socket.on('update', nextGame => {
-    state.game = nextGame;
-    state.roomCode = state.roomCode || nextGame.roomCode;
-    state.notice = '';
+  socket.on('connect', () => {
+    if (!state.playerName || !state.roomCode) return;
 
-    if (nextGame.winner) {
-      showWinnerScreen();
-    } else if (nextGame.countdownEndsAt && !nextGame.started) {
-      showCountdownScreen();
-    } else if ((state.screen === 'room-created' || state.screen === 'lobby' || state.screen === 'countdown') && !nextGame.started) {
-      renderRoomCreated();
-    } else if ((state.screen === 'room-created' || state.screen === 'countdown') && nextGame.started) {
-      showGame();
-    } else if (state.screen === 'game' || state.screen === 'winner') {
-      showGame();
-    }
+    socket.emit('rejoinRoom', {
+      roomCode: state.roomCode,
+      playerName: state.playerName
+    }, response => {
+      if (response && response.success && response.state) {
+        showStateScreen(response.state);
+      } else {
+        forgetRoom();
+        if (state.screen !== 'name') showLobby();
+      }
+    });
   });
+
+  socket.on('update', showStateScreen);
 
   socket.on('showSenta', ({ playerName }) => {
     const overlay = document.createElement('div');

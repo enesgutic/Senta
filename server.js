@@ -30,6 +30,11 @@ const games = {};
 const pendingWinTimers = {};
 const startTimers = {};
 
+function rememberSocket(socket, roomCode, playerName) {
+  socket.data.roomCode = roomCode;
+  socket.data.playerName = playerName;
+}
+
 function sendUpdate(roomCode) {
   const game = games[roomCode];
   if (!game) return;
@@ -71,6 +76,21 @@ function getGame(roomCode, callback) {
   return game;
 }
 
+function reconnectPlayer(game, socket, roomCode, playerName) {
+  const normalizedName = String(playerName || '').trim().slice(0, 14);
+  if (!normalizedName) return { success: false, error: 'Missing player name.' };
+
+  const playerIndex = game.players.findIndex(player => player.name === normalizedName);
+  if (playerIndex === -1) return { success: false, error: 'Player not found in this room.' };
+
+  game.players[playerIndex].id = socket.id;
+  game.players[playerIndex].connected = true;
+  socket.join(roomCode);
+  rememberSocket(socket, roomCode, normalizedName);
+
+  return { success: true, state: game.getPublicState() };
+}
+
 function scheduleStart(roomCode) {
   const game = games[roomCode];
   clearStartTimer(roomCode);
@@ -94,6 +114,7 @@ io.on('connection', socket => {
 
     games[roomCode] = game;
     socket.join(roomCode);
+    rememberSocket(socket, roomCode, name);
     callback({ success: true, roomCode, state: game.getPublicState() });
   });
 
@@ -107,8 +128,19 @@ io.on('connection', socket => {
     if (!result.success) return callback(result);
 
     socket.join(normalizedRoom);
+    rememberSocket(socket, normalizedRoom, name);
     callback({ success: true, state: game.getPublicState() });
     sendUpdate(normalizedRoom);
+  });
+
+  socket.on('rejoinRoom', ({ roomCode, playerName }, callback) => {
+    const normalizedRoom = String(roomCode || '').trim().toUpperCase();
+    const game = getGame(normalizedRoom, callback);
+    if (!game) return;
+
+    const result = reconnectPlayer(game, socket, normalizedRoom, playerName);
+    if (result.success) sendUpdate(normalizedRoom);
+    if (callback) callback(result);
   });
 
   socket.on('playCard', ({ roomCode, handIndex, pileIndex }, callback) => {
@@ -221,14 +253,6 @@ io.on('connection', socket => {
 
       if (playerIdx !== -1) {
         game.players[playerIdx].connected = false;
-        game.winner = 'Game over: player left';
-        game.pendingWin = null;
-        game.countdownEndsAt = null;
-        game.startVotes = {};
-        game.drawCardReady = [];
-        game.handCardChoice = {};
-        clearPendingWinTimer(roomCode);
-        clearStartTimer(roomCode);
         sendUpdate(roomCode);
       }
     }
