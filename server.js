@@ -19,7 +19,10 @@ const {
 const PORT = process.env.PORT || 3000;
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const isVercel = Boolean(process.env.VERCEL);
+const io = new Server(server, {
+  transports: isVercel ? ['polling'] : ['polling', 'websocket']
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
