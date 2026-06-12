@@ -68,10 +68,15 @@
 
   function canSenta() {
     if (!state.game || state.game.winner) return false;
+    if (state.game.sentaClaim) return false;
     const [left, right] = state.game.centerPiles;
     const leftTop = left[left.length - 1];
     const rightTop = right[right.length - 1];
     return Boolean(leftTop && rightTop && leftTop.value === rightTop.value);
+  }
+
+  function setPlayingMode(isPlaying) {
+    document.body.classList.toggle('is-playing', isPlaying);
   }
 
   function setNotice(message) {
@@ -104,6 +109,7 @@
 
   function showNameForm() {
     stopRoomTicker();
+    setPlayingMode(false);
     state.screen = 'name';
     root.innerHTML = `
       <section class="entry-shell">
@@ -120,6 +126,7 @@
 
   function showLobby() {
     stopRoomTicker();
+    setPlayingMode(false);
     state.screen = 'lobby';
     root.innerHTML = `
       <section class="entry-shell">
@@ -153,6 +160,7 @@
   }
 
   function renderRoomCreated() {
+    setPlayingMode(false);
     const players = state.game ? state.game.players : [];
     const votes = state.game && state.game.startVotes ? state.game.startVotes : {};
     const { myIdx } = getPlayers();
@@ -201,6 +209,7 @@
   }
 
   function showCountdownScreen() {
+    setPlayingMode(false);
     state.screen = 'countdown';
     renderCountdownScreen();
   }
@@ -223,12 +232,14 @@
 
   function showGame() {
     stopRoomTicker();
+    setPlayingMode(true);
     state.screen = 'game';
     renderGame();
   }
 
   function showWinnerScreen() {
     stopRoomTicker();
+    setPlayingMode(false);
     state.screen = 'winner';
     renderWinnerScreen();
   }
@@ -301,6 +312,7 @@
     if (state.drawMode) message = 'Choose one of your hand cards to place.';
     if (meReady && !oppReady) message = 'Waiting for the other player to draw.';
     if (!meReady && oppReady) message = 'Opponent wants to draw. Join when ready.';
+    if (state.game.sentaClaim) message = `${state.game.sentaClaim.playerName} hit SENTA.`;
     if (state.game.pendingWin) message = `${state.game.pendingWin.playerName} is almost out. SENTA can still stop it.`;
     if (state.notice) message = state.notice;
 
@@ -471,6 +483,18 @@
     setNotice('');
   }
 
+  function syncLocalSelectionUi() {
+    document.querySelectorAll('.my-hand [data-hand-idx]').forEach(card => {
+      card.classList.toggle('selected', Number(card.dataset.handIdx) === state.selectedHandIdx);
+    });
+
+    const message = document.querySelector('.turn-message');
+    if (message) message.textContent = state.selectedHandIdx === null ? 'Pick a card, then tap a center pile.' : 'Tap a valid pile to play it.';
+
+    const cancel = document.querySelector('[data-action="cancel-select"]');
+    if (cancel) cancel.disabled = state.selectedHandIdx === null && !state.drawMode;
+  }
+
   function goHome() {
     state.screen = 'lobby';
     state.roomCode = '';
@@ -503,7 +527,7 @@
 
     state.selectedHandIdx = handIdx;
     socket.emit('selectHandCard', { roomCode: state.roomCode, handIdx });
-    renderGame();
+    syncLocalSelectionUi();
   }
 
   function handlePileTap(pileIdx) {

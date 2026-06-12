@@ -7,6 +7,7 @@ const {
   joinGame,
   playCard,
   sentaAction,
+  claimSenta,
   rematch,
   playerForceDraw,
   playerDrawCard,
@@ -133,13 +134,14 @@ io.on('connection', socket => {
     const game = getGame(roomCode, callback);
     if (!game) return;
 
-    const player = game.players.find(currentPlayer => currentPlayer.id === socket.id);
-    if (!player) {
-      if (callback) callback({ success: false, error: 'Player not found.' });
+    const claim = claimSenta(game, socket.id);
+    if (!claim.success) {
+      if (callback) callback(claim);
       return;
     }
 
-    io.to(roomCode).emit('showSenta', { playerName: player.name });
+    sendUpdate(roomCode);
+    io.to(roomCode).emit('showSenta', { playerName: claim.playerName });
 
     setTimeout(() => {
       const result = sentaAction(game, socket.id);

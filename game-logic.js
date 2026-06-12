@@ -67,6 +67,7 @@ function resetRound(game) {
   game.rematchVotes = {};
   game.startVotes = {};
   game.countdownEndsAt = null;
+  game.sentaClaim = null;
   game.sentaBufferUntil = 0;
   game.lastUpdate = Date.now();
 
@@ -93,6 +94,7 @@ function createGame(playerName, playerId) {
     rematchVotes: {},
     startVotes: {},
     countdownEndsAt: null,
+    sentaClaim: null,
     sentaBufferUntil: 0,
     lastUpdate: Date.now(),
     getPublicState() {
@@ -114,6 +116,7 @@ function createGame(playerName, playerId) {
         rematchVotes: { ...this.rematchVotes },
         startVotes: { ...this.startVotes },
         countdownEndsAt: this.countdownEndsAt,
+        sentaClaim: this.sentaClaim ? { playerName: this.sentaClaim.playerName } : null,
         serverTime: Date.now()
       };
     }
@@ -173,6 +176,7 @@ function startRound(game) {
   game.forceDrawVotes = {};
   game.startVotes = {};
   game.countdownEndsAt = null;
+  game.sentaClaim = null;
   game.lastUpdate = Date.now();
   dealOpeningCards(game);
 
@@ -227,6 +231,7 @@ function finalizePendingWin(game) {
 
 function playCard(game, playerId, handIdx, pileIdx) {
   if (!game.started || game.winner) return { success: false, error: 'Game is not active.' };
+  if (game.sentaClaim) return { success: false, error: 'SENTA is resolving.' };
 
   const playerIndex = getPlayerIndex(game, playerId);
   if (playerIndex === -1) return { success: false, error: 'Player not found.' };
@@ -259,11 +264,11 @@ function playCard(game, playerId, handIdx, pileIdx) {
 
 function sentaAction(game, playerId) {
   if (!game.started || game.winner) return { success: false, error: 'Game is not active.' };
-  if (!topCardsMatch(game)) return { success: false, error: 'SENTA needs matching center cards.' };
-  if (Date.now() < game.sentaBufferUntil) return { success: false, error: 'SENTA is cooling down.' };
-
   const playerIndex = getPlayerIndex(game, playerId);
   if (playerIndex === -1) return { success: false, error: 'Player not found.' };
+  if (!game.sentaClaim || game.sentaClaim.playerId !== playerId) {
+    return { success: false, error: 'Another player already hit SENTA.' };
+  }
 
   const opponent = game.players[1 - playerIndex];
   const allCenter = [...game.centerPiles[0], ...game.centerPiles[1]];
@@ -277,10 +282,31 @@ function sentaAction(game, playerId) {
   game.pendingWin = null;
   game.drawCardReady = [];
   game.handCardChoice = {};
+  game.sentaClaim = null;
   game.sentaBufferUntil = Date.now() + 650;
   game.lastUpdate = Date.now();
 
   return { success: true, update: true };
+}
+
+function claimSenta(game, playerId) {
+  if (!game.started || game.winner) return { success: false, error: 'Game is not active.' };
+  if (!topCardsMatch(game)) return { success: false, error: 'SENTA needs matching center cards.' };
+  if (game.sentaClaim) return { success: false, error: 'Another player already hit SENTA.' };
+  if (Date.now() < game.sentaBufferUntil) return { success: false, error: 'SENTA is cooling down.' };
+
+  const playerIndex = getPlayerIndex(game, playerId);
+  if (playerIndex === -1) return { success: false, error: 'Player not found.' };
+
+  const player = game.players[playerIndex];
+  game.sentaClaim = {
+    playerId,
+    playerName: player.name,
+    claimedAt: Date.now()
+  };
+  game.lastUpdate = Date.now();
+
+  return { success: true, update: true, playerName: player.name };
 }
 
 function rematch(game) {
@@ -305,6 +331,7 @@ function drawOneToPile(game, player, playerIndex, handCardIdx) {
 
 function playerDrawCard(game, playerId, handCardIdx) {
   if (!game.started || game.winner) return { success: false, error: 'Game is not active.' };
+  if (game.sentaClaim) return { success: false, error: 'SENTA is resolving.' };
   if (game.drawCardReady.includes(playerId)) {
     return { success: false, error: 'Already waiting for the other player.' };
   }
@@ -364,6 +391,7 @@ module.exports = {
   playerForceDraw,
   playerDrawCard,
   selectHandCard,
+  claimSenta,
   finalizePendingWin,
   voteToStart,
   startRound
