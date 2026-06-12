@@ -9,6 +9,7 @@
     roomCode: '',
     game: null,
     selectedHandIdx: null,
+    pendingPlay: null,
     drawMode: false,
     lastPileTap: [0, 0],
     lastSentaAt: 0,
@@ -409,11 +410,11 @@
           ${(state.game.centerPiles || [[], []]).map(renderPile).join('')}
         </section>
 
-        ${renderPlayerPanel(me, 'You', 'you')}
-
         <section class="my-hand" aria-label="Your hand">
           ${myHand || '<div class="empty-row">No cards left</div>'}
         </section>
+
+        ${renderPlayerPanel(me, 'You', 'you')}
 
         ${renderActionDock(me, opp)}
       </section>
@@ -430,6 +431,7 @@
       state.roomCode = response.roomCode;
       state.game = response.state;
       state.selectedHandIdx = null;
+      state.pendingPlay = null;
       showRoomCreated();
     });
   }
@@ -444,6 +446,7 @@
       state.roomCode = roomCode.toUpperCase();
       state.game = response.state;
       state.selectedHandIdx = null;
+      state.pendingPlay = null;
       showRoomCreated();
     });
   }
@@ -459,6 +462,14 @@
     state.game = nextGame;
     state.roomCode = state.roomCode || nextGame.roomCode;
     state.notice = '';
+
+    const { me } = getPlayers();
+    if (state.pendingPlay && (!me || !me.hand[state.pendingPlay.handIdx])) {
+      state.pendingPlay = null;
+    }
+    if (state.selectedHandIdx !== null && (!me || !me.hand[state.selectedHandIdx])) {
+      state.selectedHandIdx = null;
+    }
 
     if (nextGame.winner) {
       showWinnerScreen();
@@ -479,17 +490,31 @@
 
   function clearSelection() {
     state.selectedHandIdx = null;
+    state.pendingPlay = null;
     state.drawMode = false;
     setNotice('');
   }
 
-  function syncLocalSelectionUi() {
+  function currentTurnMessage() {
+    if (!state.game || !state.game.started) return 'Waiting for your friend to join.';
+    if (state.pendingPlay) return 'Playing card...';
+    if (state.selectedHandIdx !== null) return 'Tap a valid pile to play it.';
+    if (state.drawMode) return 'Choose one of your hand cards to place.';
+    return 'Pick a card, then tap a center pile.';
+  }
+
+  function syncLocalPlayUi() {
     document.querySelectorAll('.my-hand [data-hand-idx]').forEach(card => {
       card.classList.toggle('selected', Number(card.dataset.handIdx) === state.selectedHandIdx);
+      card.classList.toggle('playing', state.pendingPlay && Number(card.dataset.handIdx) === state.pendingPlay.handIdx);
+    });
+
+    document.querySelectorAll('.center-table [data-pile-idx]').forEach(pile => {
+      pile.classList.toggle('targeted', state.pendingPlay && Number(pile.dataset.pileIdx) === state.pendingPlay.pileIdx);
     });
 
     const message = document.querySelector('.turn-message');
-    if (message) message.textContent = state.selectedHandIdx === null ? 'Pick a card, then tap a center pile.' : 'Tap a valid pile to play it.';
+    if (message) message.textContent = currentTurnMessage();
 
     const cancel = document.querySelector('[data-action="cancel-select"]');
     if (cancel) cancel.disabled = state.selectedHandIdx === null && !state.drawMode;
@@ -500,6 +525,7 @@
     state.roomCode = '';
     state.game = null;
     state.selectedHandIdx = null;
+    state.pendingPlay = null;
     state.drawMode = false;
     state.notice = '';
     showLobby();
@@ -526,8 +552,9 @@
     }
 
     state.selectedHandIdx = handIdx;
+    state.pendingPlay = null;
     socket.emit('selectHandCard', { roomCode: state.roomCode, handIdx });
-    syncLocalSelectionUi();
+    syncLocalPlayUi();
   }
 
   function handlePileTap(pileIdx) {
@@ -550,16 +577,26 @@
       return;
     }
 
+    const handIndex = state.selectedHandIdx;
+    state.pendingPlay = { handIdx: handIndex, pileIdx };
+    state.selectedHandIdx = null;
+    syncLocalPlayUi();
+
     socket.emit('playCard', {
       roomCode: state.roomCode,
-      handIndex: state.selectedHandIdx,
+      handIndex,
       pileIndex: pileIdx
     }, response => {
-      if (response && !response.success) setNotice(response.error || 'That move is not valid.');
-    });
+      state.pendingPlay = null;
 
-    state.selectedHandIdx = null;
-    renderGame();
+      if (response && !response.success) {
+        state.selectedHandIdx = handIndex;
+        setNotice(response.error || 'That move is not valid.');
+        return;
+      }
+
+      syncLocalPlayUi();
+    });
   }
 
   root.addEventListener('submit', event => {
@@ -648,6 +685,7 @@
   socket.on('drawCardReset', () => {
     state.drawMode = false;
     state.selectedHandIdx = null;
+    state.pendingPlay = null;
     if (state.screen === 'game') renderGame();
   });
 
@@ -659,6 +697,7 @@
   socket.on('rematchStarted', () => {
     stopRoomTicker();
     state.selectedHandIdx = null;
+    state.pendingPlay = null;
     state.drawMode = false;
     state.notice = '';
     state.screen = 'game';

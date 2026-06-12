@@ -406,7 +406,7 @@ input:focus {
   margin: 0 auto;
   padding: calc(env(safe-area-inset-top, 0px) + 0.55rem) 0.9rem calc(env(safe-area-inset-bottom, 0px) + 0.55rem);
   display: grid;
-  grid-template-rows: auto auto minmax(3.4rem, 0.55fr) minmax(9.5rem, 1.25fr) auto minmax(5.2rem, 0.72fr) auto;
+  grid-template-rows: auto auto minmax(3.4rem, 0.55fr) minmax(9.5rem, 1.25fr) minmax(5.2rem, 0.72fr) auto auto;
   gap: 0.45rem;
   overflow: hidden;
 }
@@ -604,6 +604,11 @@ input:focus {
   transform: translateY(-0.35rem);
 }
 
+.card.playing {
+  opacity: 0.72;
+  transform: translateY(-0.2rem) scale(0.98);
+}
+
 .mini-card {
   width: clamp(2.35rem, 10vw, 3.35rem);
   border-radius: 0.58rem;
@@ -619,6 +624,11 @@ input:focus {
   width: clamp(4.3rem, 20vw, 6.2rem);
   border-radius: 0.85rem;
   font-size: clamp(1.7rem, 7vw, 2.4rem);
+}
+
+.center-card.targeted {
+  outline: 3px solid var(--green);
+  box-shadow: 0 0 0 5px rgba(39, 195, 166, 0.16), 0 12px 22px rgba(0, 0, 0, 0.24);
 }
 
 .center-card.empty {
@@ -822,7 +832,7 @@ input:focus {
 
 @media (max-height: 720px) {
   .table-shell {
-    grid-template-rows: auto auto minmax(2.8rem, 0.45fr) minmax(8rem, 1fr) auto minmax(4.7rem, 0.6fr) auto;
+    grid-template-rows: auto auto minmax(2.8rem, 0.45fr) minmax(8rem, 1fr) minmax(4.7rem, 0.6fr) auto auto;
     gap: 0.32rem;
   }
 
