@@ -1,13 +1,12 @@
 (() => {
   const socket = io();
   const root = document.querySelector('#game-root');
-  const ACTIVE_ROOM_KEY = 'senta:room';
   let roomTicker = null;
 
   const state = {
     screen: 'name',
     playerName: localStorage.getItem('senta:name') || '',
-    roomCode: localStorage.getItem(ACTIVE_ROOM_KEY) || '',
+    roomCode: '',
     game: null,
     selectedHandIdx: null,
     drawMode: false,
@@ -78,16 +77,6 @@
   function setNotice(message) {
     state.notice = message || '';
     if (state.screen === 'game') renderGame();
-  }
-
-  function rememberRoom(roomCode) {
-    state.roomCode = String(roomCode || '').toUpperCase();
-    if (state.roomCode) localStorage.setItem(ACTIVE_ROOM_KEY, state.roomCode);
-  }
-
-  function forgetRoom() {
-    state.roomCode = '';
-    localStorage.removeItem(ACTIVE_ROOM_KEY);
   }
 
   function stopRoomTicker() {
@@ -426,7 +415,7 @@
         return;
       }
 
-      rememberRoom(response.roomCode);
+      state.roomCode = response.roomCode;
       state.game = response.state;
       state.selectedHandIdx = null;
       showRoomCreated();
@@ -440,7 +429,7 @@
         return;
       }
 
-      rememberRoom(roomCode);
+      state.roomCode = roomCode.toUpperCase();
       state.game = response.state;
       state.selectedHandIdx = null;
       showRoomCreated();
@@ -456,7 +445,7 @@
     if (!nextGame) return;
 
     state.game = nextGame;
-    rememberRoom(nextGame.roomCode || state.roomCode);
+    state.roomCode = state.roomCode || nextGame.roomCode;
     state.notice = '';
 
     if (nextGame.winner) {
@@ -484,7 +473,7 @@
 
   function goHome() {
     state.screen = 'lobby';
-    forgetRoom();
+    state.roomCode = '';
     state.game = null;
     state.selectedHandIdx = null;
     state.drawMode = false;
@@ -590,10 +579,7 @@
 
     const action = actionTarget.dataset.action;
     if (action === 'create-room') createRoom();
-    if (action === 'leave-room') {
-      forgetRoom();
-      window.location.reload();
-    }
+    if (action === 'leave-room') window.location.reload();
     if (action === 'copy-room' && state.roomCode) navigator.clipboard && navigator.clipboard.writeText(state.roomCode);
     if (action === 'cancel-select') clearSelection();
     if (action === 'senta') requestSenta();
@@ -623,22 +609,6 @@
         setNotice('Choose one of your hand cards to place.');
       }
     }
-  });
-
-  socket.on('connect', () => {
-    if (!state.playerName || !state.roomCode) return;
-
-    socket.emit('rejoinRoom', {
-      roomCode: state.roomCode,
-      playerName: state.playerName
-    }, response => {
-      if (response && response.success && response.state) {
-        showStateScreen(response.state);
-      } else {
-        forgetRoom();
-        if (state.screen !== 'name') showLobby();
-      }
-    });
   });
 
   socket.on('update', showStateScreen);
